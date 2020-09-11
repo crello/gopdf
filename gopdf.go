@@ -324,7 +324,7 @@ func (gp *GoPdf) AddPageWithOption(opt PageOption) {
 		page.setOption(opt)
 		gp.curr.pageSize = opt.PageSize
 
-		if opt.doesTrimBoxSet() {
+		if opt.isTrimBoxSet() {
 			gp.curr.trimBox = opt.TrimBox
 		}
 	} else { //use default

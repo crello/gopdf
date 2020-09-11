@@ -61,7 +61,7 @@ func (p *PageObj) write(w io.Writer, objID int) error {
 	if !p.pageOption.isEmpty() {
 		fmt.Fprintf(w, " /MediaBox [ 0 0 %0.2f %0.2f ]\n", p.pageOption.PageSize.W, p.pageOption.PageSize.H)
 	}
-	if p.pageOption.doesTrimBoxSet() {
+	if p.pageOption.isTrimBoxSet() {
 		trimBox := p.pageOption.TrimBox
 		fmt.Fprintf(w, " /TrimBox [ %0.2f %0.2f %0.2f %0.2f ]\n", trimBox.Left, trimBox.Top, trimBox.Right, trimBox.Bottom)
 	}

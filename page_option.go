@@ -13,7 +13,7 @@ func (p PageOption) isEmpty() bool {
 	return false
 }
 
-func (p PageOption) doesTrimBoxSet() bool {
+func (p PageOption) isTrimBoxSet() bool {
 	if p.TrimBox == nil {
 		return false
 	}
