@@ -84,6 +84,10 @@ type CropOptions struct {
 	Height float64
 }
 
+type MaskOptions struct {
+	Data []byte
+}
+
 type ImageOptions struct {
 	VerticalFlip   bool
 	HorizontalFlip bool
@@ -92,6 +96,7 @@ type ImageOptions struct {
 	Rect           *Rect
 	Transparency   *Transparency
 	Crop           *CropOptions
+	Mask           *MaskOptions
 }
 
 //SetLineWidth : set line width
@@ -285,10 +290,10 @@ func (gp *GoPdf) imageByHolder(img ImageHolder, opts ImageOptions) error {
 			}
 		}
 
-		err = imgobj.parse()
-		if err != nil {
+		if err := imgobj.parse(); err != nil {
 			return err
 		}
+
 		index := gp.addObj(imgobj)
 		if gp.indexOfProcSet != -1 {
 			//ยัดรูป
@@ -310,6 +315,10 @@ func (gp *GoPdf) imageByHolder(img ImageHolder, opts ImageOptions) error {
 				return err
 			}
 			imgobj.imginfo.smarkObjID = gp.addObj(smaskObj)
+		}
+
+		if opts.Mask != nil {
+			imgobj.imginfo.smask = opts.Mask.Data
 		}
 
 		if imgobj.isColspaceIndexed() {
