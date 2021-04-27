@@ -3,15 +3,12 @@ package gopdf
 import (
 	"bytes"
 	"fmt"
-
 	"image"
-
 	// Packages image/jpeg and image/png are not used explicitly in the code below,
 	// but are imported for their initialization side-effect, which allows
 	// image.Decode to understand JPEG formatted images.
 	_ "image/jpeg"
 	_ "image/png"
-
 	"io"
 	"io/ioutil"
 	"log"
@@ -89,16 +86,27 @@ func (i *ImageObj) haveSMask() bool {
 	return haveSMask(i.imginfo)
 }
 
-func (i *ImageObj) createSMask() (*SMask, error) {
+func (i *ImageObj) createSMask(maskImgObj *ImageObj) (*SMask, error) {
 	var smk SMask
 	smk.setProtection(i.protection())
-	smk.w = i.imginfo.w
-	smk.h = i.imginfo.h
+
+	var imgInfo imgInfo
+	if maskImgObj != nil {
+		imgInfo = maskImgObj.imginfo
+	} else {
+		imgInfo = i.imginfo
+	}
+
+	smk.w = imgInfo.w
+	smk.h = imgInfo.h
 	smk.colspace = "DeviceGray"
 	smk.bitsPerComponent = "8"
-	smk.filter = i.imginfo.filter
-	smk.data = i.imginfo.smask
-	smk.decodeParms = fmt.Sprintf("/Predictor 15 /Colors 1 /BitsPerComponent 8 /Columns %d", i.imginfo.w)
+	smk.filter = imgInfo.filter
+
+	smk.data = imgInfo.smask
+
+	smk.decodeParms = fmt.Sprintf("/Predictor 15 /Colors 1 /BitsPerComponent 8 /Columns %d", imgInfo.w)
+
 	return &smk, nil
 }
 

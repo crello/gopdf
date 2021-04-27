@@ -50,7 +50,7 @@ func writeImgProp(w io.Writer, imginfo imgInfo) error {
 	}
 
 	if haveSMask(imginfo) {
-		fmt.Fprintf(w, "/SMask %d 0 R\n", imginfo.smarkObjID+1)
+		fmt.Fprintf(w, "/SMask %d 0 R\n", imginfo.smaskObjID+1)
 	}
 
 	return nil

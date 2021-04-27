@@ -85,7 +85,8 @@ type CropOptions struct {
 }
 
 type MaskOptions struct {
-	Data []byte
+	Rect   *Rect
+	Holder ImageHolder
 }
 
 type ImageOptions struct {
@@ -309,16 +310,49 @@ func (gp *GoPdf) imageByHolder(img ImageHolder, opts ImageOptions) error {
 			gp.curr.CountOfImg++
 		}
 
-		if imgobj.haveSMask() {
-			smaskObj, err := imgobj.createSMask()
+		var maskImgObj *ImageObj
+		if opts.Mask != nil {
+			maskImgObj = new(ImageObj)
+			maskImgObj.init(func() *GoPdf {
+				return gp
+			})
+
+			err := maskImgObj.SetImage(opts.Mask.Holder)
 			if err != nil {
 				return err
 			}
-			imgobj.imginfo.smarkObjID = gp.addObj(smaskObj)
+
+			if opts.Mask.Rect == nil {
+				if opts.Mask.Rect, err = maskImgObj.getRect(); err != nil {
+					return err
+				}
+			}
+
+			if err := maskImgObj.parse(); err != nil {
+				return err
+			}
+
+			//index := gp.addObj(maskImgObj)
+			//if gp.indexOfProcSet != -1 {
+			//	procset := gp.pdfObjs[gp.indexOfProcSet].(*ProcSetObj)
+			//	gp.getContent().AppendStreamImage(gp.curr.CountOfImg, opts)
+			//	procset.RelateXobjs = append(procset.RelateXobjs, RelateXobject{IndexOfObj: index})
+			//	imgcache := ImageCache{
+			//		Path:  img.ID(),
+			//		Index: gp.curr.CountOfImg,
+			//		Rect:  opts.Mask.Rect,
+			//	}
+			//	gp.curr.ImgCaches = append(gp.curr.ImgCaches, imgcache)
+			//	gp.curr.CountOfImg++
+			//}
 		}
 
-		if opts.Mask != nil {
-			imgobj.imginfo.smask = opts.Mask.Data
+		if opts.Mask != nil || imgobj.haveSMask() {
+			smaskObj, err := imgobj.createSMask(maskImgObj)
+			if err != nil {
+				return err
+			}
+			imgobj.imginfo.smaskObjID = gp.addObj(smaskObj)
 		}
 
 		if imgobj.isColspaceIndexed() {
