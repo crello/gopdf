@@ -332,10 +332,6 @@ func (c *ContentObj) AppendStreamPolygon(points []Point, style string, opts poly
 	c.listCache.append(&cache)
 }
 
-func (c *ContentObj) AppendStreamMask() {
-
-}
-
 func (c *ContentObj) appendRotate(angle, x, y float64) {
 	var cache cacheContentRotate
 	cache.isReset = false
