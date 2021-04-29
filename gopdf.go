@@ -107,22 +107,11 @@ type ImageOptions struct {
 	Mask           *MaskOptions
 	Crop           *CropOptions
 	Transparency   *Transparency
-
-	extGStateIndexes []int
 }
 
 type MaskOptions struct {
 	ImageOptions
-	BBox   *[4]float64
 	Holder ImageHolder
-}
-
-type lineOptions struct {
-	extGStateIndexes []int
-}
-
-type polygonOptions struct {
-	extGStateIndexes []int
 }
 
 //SetLineWidth : set line width
@@ -356,42 +345,90 @@ func (gp *GoPdf) ImageByHolderWithOptions(img ImageHolder, opts ImageOptions) er
 
 	opts.Rect = opts.Rect.UnitsToPoints(gp.config.Unit)
 
-	imageTransparency, err := gp.getCachedTransparency(opts.Transparency)
-	if err != nil {
-		return err
-	}
-
-	if imageTransparency != nil {
-		opts.extGStateIndexes = append(opts.extGStateIndexes, imageTransparency.extGStateIndex)
-	}
-
 	if opts.Mask != nil {
-		maskTransparency, err := gp.getCachedTransparency(opts.Mask.ImageOptions.Transparency)
-		if err != nil {
+		opts.Mask.Rect = opts.Mask.Rect.UnitsToPoints(gp.config.Unit)
+
+		maskOpts := ImageOptions{
+			X:              opts.Mask.X,
+			Y:              opts.Mask.Y,
+			Rect:           opts.Mask.Rect,
+			VerticalFlip:   opts.Mask.VerticalFlip,
+			HorizontalFlip: opts.Mask.HorizontalFlip,
+		}
+
+		if err := gp.maskHolder(opts.Mask.Holder, maskOpts); err != nil {
 			return err
 		}
-
-		if maskTransparency != nil {
-			opts.Mask.ImageOptions.extGStateIndexes = append(opts.Mask.ImageOptions.extGStateIndexes, maskTransparency.extGStateIndex)
-		}
-
-		gp.UnitsToPointsVar(&opts.Mask.ImageOptions.X, &opts.Mask.ImageOptions.Y)
-		opts.Mask.ImageOptions.Rect = opts.Mask.ImageOptions.Rect.UnitsToPoints(gp.config.Unit)
-
-		extGStateIndex, err := gp.maskHolder(opts.Mask.Holder, *opts.Mask)
-		if err != nil {
-			return err
-		}
-
-		opts.extGStateIndexes = append(opts.extGStateIndexes, extGStateIndex)
 	}
 
 	return gp.imageByHolder(img, opts)
 }
 
-func (gp *GoPdf) maskHolder(img ImageHolder, opts MaskOptions) (int, error) {
-	var cacheImage *ImageCache
-	var cacheContentImage *cacheContentImage
+func (gp *GoPdf) maskHolder(img ImageHolder, opts ImageOptions) error {
+	cacheImageIndex := -1
+
+	for _, imgcache := range gp.curr.ImgCaches {
+		if img.ID() == imgcache.Path {
+			cacheImageIndex = imgcache.Index
+			break
+		}
+	}
+
+	if cacheImageIndex == - 1 {
+		maskImgobj := new(ImageObj)
+		maskImgobj.init(func() *GoPdf {
+			return gp
+		})
+		maskImgobj.setProtection(gp.protection())
+
+		err := maskImgobj.SetImage(img)
+		if err != nil {
+			return err
+		}
+
+		if opts.Rect == nil {
+			if opts.Rect, err = maskImgobj.getRect(); err != nil {
+				return err
+			}
+		}
+
+		err = maskImgobj.parse()
+		if err != nil {
+			return err
+		}
+
+		index := gp.addObj(maskImgobj)
+		if gp.indexOfProcSet != -1 {
+			procset := gp.pdfObjs[gp.indexOfProcSet].(*ProcSetObj)
+			cacheImage := gp.getContent().AppendStreamImage(gp.curr.CountOfImg, opts)
+			procset.RelateXobjs = append(procset.RelateXobjs, RelateXobject{IndexOfObj: index})
+
+			imgcache := ImageCache{
+				Index: index,
+				Path:  img.ID(),
+				Rect:  opts.Mask.Rect,
+			}
+			gp.curr.ImgCaches = append(gp.curr.ImgCaches, imgcache)
+			gp.curr.CountOfImg++
+
+			opts := ExtGStateOptions{MaskImages: []cacheContentImage{cacheImage}}
+			if _, err := NewExtGState(opts, gp); err != nil {
+				return err
+			}
+		}
+	} else if cacheImageIndex != - 1 {
+		if opts.Mask.Rect == nil {
+			opts.Mask.Rect = gp.curr.ImgCaches[cacheImageIndex].Rect
+		}
+
+		gp.getContent().AppendStreamImage(cacheImageIndex, opts)
+	}
+
+	return nil
+}
+
+func (gp *GoPdf) imageByHolder(img ImageHolder, opts ImageOptions) error {
+	cacheImageIndex := -1
 
 	for _, imgcache := range gp.curr.ImgCaches {
 		if img.ID() == imgcache.Path {
@@ -1488,10 +1525,9 @@ func (gp *GoPdf) init() {
 	gp.curr.IndexOfPageObj = -1
 	gp.curr.CountOfFont = 0
 	gp.curr.CountOfL = 0
-	gp.curr.CountOfImg = 0                       //img
-	gp.curr.ImgCaches = make(map[int]ImageCache) //= *new([]ImageCache)
-	gp.curr.sMasksMap = NewSMaskMap()
-	gp.curr.extGStatesMap = NewExtGStatesMap()
+	gp.curr.CountOfImg = 0 //img
+	gp.curr.ImgCaches = *new([]ImageCache)
+	gp.curr.extGStateMap = NewExtGStateMap()
 	gp.curr.transparencyMap = NewTransparencyMap()
 	gp.anchors = make(map[string]anchorOption)
 	gp.curr.txtColorMode = "gray"
@@ -1759,14 +1795,14 @@ func (gp *GoPdf) saveTransparency(transparency *Transparency) (*Transparency, er
 	if ok {
 		return &cached, nil
 	} else if transparency.Alpha != DefaultAplhaValue {
-		bm := transparency.BlendModeType
+		bm := string(transparency.BlendModeType)
 		opts := ExtGStateOptions{
 			BlendMode:     &bm,
 			StrokingCA:    &transparency.Alpha,
 			NonStrokingCa: &transparency.Alpha,
 		}
 
-		extGState, err := GetCachedExtGState(opts, gp)
+		extGState, err := NewExtGState(opts, gp)
 		if err != nil {
 			return nil, err
 		}

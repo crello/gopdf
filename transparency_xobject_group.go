@@ -3,44 +3,44 @@ package gopdf
 import (
 	"fmt"
 	"io"
+	"math"
+
+	"github.com/pkg/errors"
 )
 
 type TransparencyXObjectGroup struct {
-	Index            int
-	BBox             [4]float64
-	Matrix           [6]float64
-	ExtGStateIndexes []int
-	XObjects         []cacheContentImage
+	Index    int
+	BBox     Rect
+	XObjects []cacheContentImage
 
-	getRoot func() *GoPdf
 	pdfProtection *PDFProtection
 }
 
 type TransparencyXObjectGroupOptions struct {
-	Protection       *PDFProtection
-	ExtGStateIndexes []int
-	BBox             [4]float64
-	XObjects         []cacheContentImage
+	BBox       Rect
+	Protection *PDFProtection
+	XObjects   []cacheContentImage
 }
 
-func GetCachedTransparencyXObjectGroup(opts TransparencyXObjectGroupOptions, gp *GoPdf) (TransparencyXObjectGroup, error) {
+func NewTransparencyXObjectGroup(opts TransparencyXObjectGroupOptions, gp *GoPdf) (TransparencyXObjectGroup, error) {
 	group := TransparencyXObjectGroup{
-		BBox:             opts.BBox,
-		XObjects:         opts.XObjects,
-		pdfProtection:    opts.Protection,
-		ExtGStateIndexes: opts.ExtGStateIndexes,
+		BBox:     opts.BBox,
+		XObjects: opts.XObjects,
+		pdfProtection: opts.Protection,
 	}
 	group.Index = gp.addObj(group)
-	group.init(func() *GoPdf {
-		return gp
-	})
+
+	pdfObj := gp.pdfObjs[gp.indexOfProcSet]
+	procset, ok := pdfObj.(*ProcSetObj)
+	if !ok {
+		return TransparencyXObjectGroup{}, errors.New("can't convert pdfobject to procsetobj")
+	}
+	procset.ExtGStates = append(procset.ExtGStates, ExtGS{Index: group.Index})
 
 	return group, nil
 }
 
-func (s TransparencyXObjectGroup) init(funcGetRoot func() *GoPdf) {
-	s.getRoot = funcGetRoot
-}
+func (s TransparencyXObjectGroup) init(func() *GoPdf) {}
 
 func (s *TransparencyXObjectGroup) setProtection(p *PDFProtection) {
 	s.pdfProtection = p
@@ -55,36 +55,33 @@ func (s TransparencyXObjectGroup) getType() string {
 }
 
 func (s TransparencyXObjectGroup) write(w io.Writer, objId int) error {
-	streamBuff := GetBuffer()
-	defer PutBuffer(streamBuff)
-
+	stream := "stream\n"
 	for _, XObject := range s.XObjects {
-		if err := XObject.write(streamBuff, nil); err != nil {
+		if err := XObject.write(w, nil); err != nil {
 			return err
 		}
 	}
 
-	content := "<<\n"
-	content += "\t/FormType 1\n"
-	content += "\t/Subtype /Form\n"
-	content += fmt.Sprintf("\t/Type /%s\n", s.getType())
-	content += fmt.Sprintf("\t/Matrix [1 0 0 1 0 0]\n")
-	content += fmt.Sprintf("\t/BBox [%.3F %.3F %.3F %.3F]\n", s.BBox[0], s.BBox[1], s.BBox[2], s.BBox[3])
-	content += "\t/Group<</CS /DeviceGray /S /Transparency>>\n"
+	stream += "endstream\n"
 
-	content += fmt.Sprintf("\t/Length %d\n", len(streamBuff.Bytes()))
+	content := fmt.Sprintf("%d 0 obj<<\n", objId)
+	content += "/Group<</CS /DeviceGray /S /Transparency>>\n"
+	content += "/Type /" + s.getType() + "\n"
+	content += "/Resources<</XObject<<\n"
+
+	for _, XObject := range s.XObjects {
+		content += fmt.Sprintf("/I%d 0 R ", XObject.index)
+	}
+
+	content += "/Subtype /Form\n"
+	content += "/FormType 1\n"
+	content += fmt.Sprintf("/BBox [0 0 %d %d]\n", int(math.Round(s.BBox.W)), int(math.Round(s.BBox.H)))
+	content += fmt.Sprintf("/Matrix [1 0 0 1 0 0]\n")
+	content += fmt.Sprintf("/Length %d\n", len(stream))
 	content += ">>\n"
-	content += "stream\n"
+	content += stream
 
 	if _, err := io.WriteString(w, content); err != nil {
-		return err
-	}
-
-	if _, err := w.Write(streamBuff.Bytes()); err != nil {
-		return err
-	}
-
-	if _, err := io.WriteString(w, "endstream\n"); err != nil {
 		return err
 	}
 

@@ -298,7 +298,9 @@ func (c *ContentObj) AppendStreamSetColorFill(r uint8, g uint8, b uint8) {
 	c.listCache.append(&cache)
 }
 
-func (c *ContentObj) GetCacheContentImage(index int, opts ImageOptions) *cacheContentImage {
+//AppendStreamImage append image
+func (c *ContentObj) AppendStreamImage(index int, opts ImageOptions) cacheContentImage {
+	//fmt.Printf("index = %d",index)
 	h := c.getRoot().curr.pageSize.H
 
 	return &cacheContentImage{
@@ -314,10 +316,10 @@ func (c *ContentObj) GetCacheContentImage(index int, opts ImageOptions) *cacheCo
 	}
 }
 
-//AppendStreamImage append image
-func (c *ContentObj) AppendStreamImage(index int, opts ImageOptions) {
-	cache := c.GetCacheContentImage(index, opts)
-	c.listCache.append(cache)
+	c.listCache.append(&cache)
+	//c.stream.WriteString(fmt.Sprintf("q %0.2f 0 0 %0.2f %0.2f %0.2f cm /I%d Do Q\n", rect.W, rect.H, x, h-(y+rect.H), index+1))
+
+	return cache
 }
 
 //AppendStreamPolygon append polygon
@@ -328,6 +330,10 @@ func (c *ContentObj) AppendStreamPolygon(points []Point, style string, opts poly
 	cache.pageHeight = c.getRoot().curr.pageSize.H
 	cache.opts = opts
 	c.listCache.append(&cache)
+}
+
+func (c *ContentObj) AppendStreamMask() {
+
 }
 
 func (c *ContentObj) appendRotate(angle, x, y float64) {

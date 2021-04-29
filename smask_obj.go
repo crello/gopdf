@@ -3,14 +3,15 @@ package gopdf
 import (
 	"fmt"
 	"io"
-	"sync"
+
+	"github.com/pkg/errors"
 )
 
 type SMaskSubtypes string
 
 const (
-	SMaskAlphaSubtype      = "/Alpha"
-	SMaskLuminositySubtype = "/Luminosity"
+	SMaskAlphaSubtype      = "Alpha"
+	SMaskLuminositySubtype = "Luminosity"
 )
 
 //SMask smask
@@ -18,7 +19,8 @@ type SMask struct {
 	imgInfo
 	data []byte
 	//getRoot func() *GoPdf
-	pdfProtection                 *PDFProtection
+	pdfProtection *PDFProtection
+
 	Index                         int
 	TransparencyXObjectGroupIndex int
 	S                             string
@@ -29,25 +31,21 @@ type SMaskOptions struct {
 	Subtype                       SMaskSubtypes
 }
 
-func (smask SMaskOptions) GetId() string {
-	id := fmt.Sprintf("S_%s;G_%d_0_R", smask.Subtype, smask.TransparencyXObjectGroupIndex)
-
-	return id
-}
-
-func GetCachedMask(opts SMaskOptions, gp *GoPdf) SMask {
-	smask, ok := gp.curr.sMasksMap.Find(opts)
-	if !ok {
-		smask = SMask{
-			S:                             string(opts.Subtype),
-			TransparencyXObjectGroupIndex: opts.TransparencyXObjectGroupIndex,
-		}
-		smask.Index = gp.addObj(smask)
-
-		gp.curr.sMasksMap.Save(opts.GetId(), smask)
+func NewSMask(opts SMaskOptions, gp *GoPdf) (SMask, error) {
+	smask := SMask{
+		S: string(opts.Subtype),
 	}
 
-	return smask
+	smask.Index = gp.addObj(smask)
+
+	pdfObj := gp.pdfObjs[gp.indexOfProcSet]
+	procset, ok := pdfObj.(*ProcSetObj)
+	if !ok {
+		return SMask{}, errors.New("can't convert pdfobject to procsetobj")
+	}
+	procset.ExtGStates = append(procset.ExtGStates, ExtGS{Index: smask.Index})
+
+	return smask, nil
 }
 
 func (s SMask) init(func() *GoPdf) {}
@@ -65,12 +63,11 @@ func (s SMask) getType() string {
 }
 
 func (s SMask) write(w io.Writer, objID int) error {
-	if s.TransparencyXObjectGroupIndex != 0 {
-		content := "<<\n"
-		content += "\t/Type /Mask\n"
-		content += fmt.Sprintf("\t/S %s\n", s.S)
-		content += fmt.Sprintf("\t/G %d 0 R\n", s.TransparencyXObjectGroupIndex+1)
-		content += ">>\n"
+
+	err := writeImgProp(w, s.imgInfo)
+	if err != nil {
+		return err
+	}
 
 		if _, err := io.WriteString(w, content); err != nil {
 			return err
