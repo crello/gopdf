@@ -366,8 +366,19 @@ func (gp *GoPdf) maskHolder(img ImageHolder, opts ImageOptions) error {
 		}
 	}
 
+	if opts.Transparency == nil {
+		opts.Transparency = gp.curr.transparency
+	} else {
+		cached, err := gp.saveTransparency(opts.Transparency)
+		if err != nil {
+			return err
+		}
+
+		opts.Transparency = cached
+	}
+
 	if cacheImageIndex == - 1 {
-		maskImgobj := new(ImageObj)
+		maskImgobj := &ImageObj{IsMask: true}
 		maskImgobj.init(func() *GoPdf {
 			return gp
 		})
@@ -405,11 +416,12 @@ func (gp *GoPdf) maskHolder(img ImageHolder, opts ImageOptions) error {
 
 			bm := string(NormalBlendMode)
 			extGStateOpts := ExtGStateOptions{
-				MaskOptions: &SMaskOptions{
-					X:       opts.X,
-					Y:       opts.Y,
-					Subtype: SMaskLuminositySubtype,
-					Images:  []cacheContentImage{cacheImage},
+				SMaskOptions: &SMaskOptions{
+					X:                opts.X,
+					Y:                opts.Y,
+					Subtype:          SMaskLuminositySubtype,
+					Images:           []cacheContentImage{cacheImage},
+					ExtGStateIndexes: []int{opts.Transparency.extGStateIndex},
 				},
 			}
 
