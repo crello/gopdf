@@ -19,6 +19,7 @@ import (
 type ImageObj struct {
 	//imagepath string
 	IsMask        bool
+	SplittedMask  bool
 	rawImgReader  *bytes.Reader
 	imginfo       imgInfo
 	pdfProtection *PDFProtection
@@ -40,17 +41,19 @@ func (i *ImageObj) protection() *PDFProtection {
 func (i *ImageObj) write(w io.Writer, objID int) error {
 	data := i.imginfo.data
 
+
 	if i.IsMask {
+		data = i.imginfo.smask
 		if err := writeMaskImgProps(w, i.imginfo); err != nil {
 			return err
 		}
 	} else {
-		if err := writeImgProps(w, i.imginfo); err != nil {
+		if err := writeImgProps(w, i.imginfo, i.SplittedMask); err != nil {
 			return err
 		}
 	}
 
-	if _, err := fmt.Fprintf(w, "\t/Length %d\n>>\n", len(i.imginfo.data)); err != nil {
+	if _, err := fmt.Fprintf(w, "\t/Length %d\n>>\n", len(data)); err != nil {
 		return err
 	}
 

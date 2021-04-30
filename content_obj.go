@@ -303,13 +303,14 @@ func (c *ContentObj) AppendStreamImage(index int, opts ImageOptions) cacheConten
 	//fmt.Printf("index = %d",index)
 	h := c.getRoot().curr.pageSize.H
 
-	return &cacheContentImage{
-		pageHeight:       h,
+	cache := cacheContentImage{
+		h:                h,
 		index:            index,
 		x:                opts.X,
 		y:                opts.Y,
 		rect:             *opts.Rect,
 		crop:             opts.Crop,
+		transparency:     opts.Transparency,
 		verticalFlip:     opts.VerticalFlip,
 		horizontalFlip:   opts.HorizontalFlip,
 		extGStateIndexes: opts.extGStateIndexes,
