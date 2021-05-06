@@ -3,6 +3,7 @@ package gopdf
 import (
 	"fmt"
 	"io"
+	"sync"
 )
 
 type SMaskSubtypes string
@@ -24,33 +25,29 @@ type SMask struct {
 }
 
 type SMaskOptions struct {
-	X                float64
-	Y                float64
-	Subtype          SMaskSubtypes
-	ExtGStateIndexes []int
-	Images           []cacheContentImage
+	TransparencyXObjectGroupIndex int
+	Subtype                       SMaskSubtypes
 }
 
-func NewSMask(opts SMaskOptions, gp *GoPdf) (SMask, error) {
-	groupOpts := TransparencyXObjectGroupOptions{
-		X:                opts.X,
-		Y:                opts.Y,
-		XObjects:         opts.Images,
-		ExtGStateIndexes: opts.ExtGStateIndexes,
-	}
-	transparencyXObjectGroup, err := NewTransparencyXObjectGroup(groupOpts, gp)
-	if err != nil {
-		return SMask{}, err
+func (smask SMaskOptions) GetId() string {
+	id := fmt.Sprintf("S_%s;G_%d_0_R", smask.Subtype, smask.TransparencyXObjectGroupIndex)
+
+	return id
+}
+
+func GetCachedMask(opts SMaskOptions, gp *GoPdf) SMask {
+	smask, ok := gp.curr.sMasksMap.Find(opts)
+	if !ok {
+		smask = SMask{
+			S:                             string(opts.Subtype),
+			TransparencyXObjectGroupIndex: opts.TransparencyXObjectGroupIndex,
+		}
+		smask.Index = gp.addObj(smask)
+
+		gp.curr.sMasksMap.Save(opts.GetId(), smask)
 	}
 
-	smask := SMask{
-		S:                             string(opts.Subtype),
-		TransparencyXObjectGroupIndex: transparencyXObjectGroup.Index,
-	}
-
-	smask.Index = gp.addObj(smask)
-
-	return smask, nil
+	return smask
 }
 
 func (s SMask) init(func() *GoPdf) {}
