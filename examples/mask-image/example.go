@@ -5,10 +5,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/signintech/gopdf"
+	"github.com/crello/gopdf"
 )
 
-const resourcesPath = "../../test/res"
+//const resourcesPath = "../../test/res"
+
+const resourcesPath = "/Users/akhll/sources/crello-gopdf/test/res"
 
 func main() {
 	pdf := gopdf.GoPdf{}
@@ -49,6 +51,11 @@ func main() {
 		log.Panic(err.Error())
 	}
 
+	transparency, err := gopdf.NewTransparency(0.5, "")
+	if err != nil {
+		log.Panic(err.Error())
+	}
+
 	maskHolder, err := gopdf.ImageHolderByPath(resourcesPath + "/mask.png")
 	if err != nil {
 		log.Panic(err.Error())
@@ -57,26 +64,21 @@ func main() {
 	maskOpts := gopdf.MaskOptions{
 		Holder: maskHolder,
 		ImageOptions: gopdf.ImageOptions{
-			X: 0,
-			Y: 0,
+			X: 100,
+			Y: 450,
 			Rect: &gopdf.Rect{
 				W: 300,
 				H: 300,
 			},
+			Transparency: &transparency,
 		},
 	}
 
-	transparency, err := gopdf.NewTransparency(0.5, "")
-	if err != nil {
-		log.Panic(err.Error())
-	}
-
 	imOpts := gopdf.ImageOptions{
-		X:            0,
-		Y:            0,
-		Mask:         &maskOpts,
-		Transparency: &transparency,
-		Rect:         &gopdf.Rect{W: 400, H: 400},
+		X:    100,
+		Y:    450,
+		Mask: &maskOpts,
+		Rect: &gopdf.Rect{W: 400, H: 400},
 	}
 	if err := pdf.ImageByHolderWithOptions(imgH2, imOpts); err != nil {
 		log.Panic(err.Error())

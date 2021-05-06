@@ -348,6 +348,7 @@ func (gp *GoPdf) ImageByHolderWithOptions(img ImageHolder, opts ImageOptions) er
 	opts.Rect = opts.Rect.UnitsToPoints(gp.config.Unit)
 
 	if opts.Mask != nil {
+		gp.UnitsToPointsVar(&opts.Mask.ImageOptions.X, &opts.Mask.ImageOptions.Y)
 		opts.Mask.ImageOptions.Rect = opts.Mask.ImageOptions.Rect.UnitsToPoints(gp.config.Unit)
 
 		extGStateIndex, err := gp.maskHolder(opts.Mask.Holder, opts.Mask.ImageOptions)
@@ -404,9 +405,9 @@ func (gp *GoPdf) maskHolder(img ImageHolder, opts ImageOptions) (int, error) {
 			return 0, err
 		}
 
-		index := gp.addObj(maskImgobj)
 		if gp.indexOfProcSet != -1 {
-			cacheImage := gp.getContent().AppendStreamImage(index, opts)
+			index := gp.addObj(maskImgobj)
+			cacheImage := gp.getContent().GetCacheContentImage(index, opts)
 
 			imgcache := ImageCache{
 				Index: index,
@@ -418,7 +419,11 @@ func (gp *GoPdf) maskHolder(img ImageHolder, opts ImageOptions) (int, error) {
 
 			groupOpts := TransparencyXObjectGroupOptions{
 				XObjects: []cacheContentImage{cacheImage},
-				BBox: [4]float64{opts.X, opts.Y, opts.X + opts.Rect.W, opts.Y + opts.Rect.H},
+				BBox: [4]float64{
+					opts.X,
+					opts.Y,
+					opts.X + opts.Rect.W,
+					gp.curr.pageSize.H - opts.Y - opts.Rect.H},
 			}
 			if opts.Transparency != nil {
 				groupOpts.ExtGStateIndexes = []int{opts.Transparency.extGStateIndex}
@@ -450,7 +455,7 @@ func (gp *GoPdf) maskHolder(img ImageHolder, opts ImageOptions) (int, error) {
 
 			return extGState.Index, nil
 		}
-	} else if cacheImageIndex != - 1 {
+	} else {
 		if opts.Mask.Rect == nil {
 			opts.Mask.Rect = gp.curr.ImgCaches[cacheImageIndex].Rect
 		}
