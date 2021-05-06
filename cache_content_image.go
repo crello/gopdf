@@ -11,7 +11,7 @@ type cacheContentImage struct {
 	index            int
 	x                float64
 	y                float64
-	h                float64
+	pageHeight       float64
 	rect             Rect
 	crop             *CropOptions
 	extGStateIndexes []int
