@@ -456,8 +456,8 @@ func (gp *GoPdf) maskHolder(img ImageHolder, opts ImageOptions) (int, error) {
 			return extGState.Index+1, nil
 		}
 	} else {
-		if opts.Mask.Rect == nil {
-			opts.Mask.Rect = gp.curr.ImgCaches[cacheImageIndex].Rect
+		if opts.Rect == nil {
+			opts.Rect = gp.curr.ImgCaches[cacheImageIndex].Rect
 		}
 
 		gp.getContent().AppendStreamImage(cacheImageIndex, opts)
@@ -873,8 +873,7 @@ func (gp *GoPdf) CellWithOption(rectangle *Rect, text string, opt CellOption) er
 	}
 
 	rectangle = rectangle.UnitsToPoints(gp.config.Unit)
-	text, err = gp.curr.FontISubset.AddChars(text)
-	if err != nil {
+	if err := gp.curr.FontISubset.AddChars(text); err != nil {
 		return err
 	}
 	if err := gp.getContent().AppendStreamSubsetFont(rectangle, text, opt); err != nil {
