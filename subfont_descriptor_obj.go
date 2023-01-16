@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/signintech/gopdf/fontmaker/core"
+	"github.com/crello/gopdf/fontmaker/core"
 )
 
 // SubfontDescriptorObj pdf subfont descriptorObj object
@@ -21,7 +21,7 @@ func (s *SubfontDescriptorObj) getType() string {
 
 func (s *SubfontDescriptorObj) write(w io.Writer, objID int) error {
 	ttfp := s.PtrToSubsetFontObj.GetTTFParser()
-	//fmt.Printf("-->%d\n", ttfp.UnitsPerEm())
+	// fmt.Printf("-->%d\n", ttfp.UnitsPerEm())
 	io.WriteString(w, "<<\n")
 	io.WriteString(w, "/Type /FontDescriptor\n")
 	fmt.Fprintf(w, "/Ascent %d\n", DesignUnitsToPdf(ttfp.Ascender(), ttfp.UnitsPerEm()))

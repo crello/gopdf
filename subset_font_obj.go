@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/signintech/gopdf/fontmaker/core"
+	"github.com/crello/gopdf/fontmaker/core"
 )
 
 // ErrCharNotFound char not found
@@ -28,14 +28,14 @@ type SubsetFontObj struct {
 }
 
 func (s *SubsetFontObj) init(funcGetRoot func() *GoPdf) {
-	s.CharacterToGlyphIndex = NewMapOfCharacterToGlyphIndex() //make(map[rune]uint)
+	s.CharacterToGlyphIndex = NewMapOfCharacterToGlyphIndex() // make(map[rune]uint)
 	s.funcKernOverride = nil
 	s.funcGetRoot = funcGetRoot
 
 }
 
 func (s *SubsetFontObj) write(w io.Writer, objID int) error {
-	//me.AddChars("จ")
+	// me.AddChars("จ")
 	io.WriteString(w, "<<\n")
 	fmt.Fprintf(w, "/BaseFont /%s\n", CreateEmbeddedFontSubsetName(s.Family))
 	fmt.Fprintf(w, "/DescendantFonts [%d 0 R]\n", s.indexObjCIDFont+1)
@@ -142,16 +142,16 @@ func (s *SubsetFontObj) AddChars(txt string) (string, error) {
 		}
 		glyphIndex, err := s.CharCodeToGlyphIndex(runeValue)
 		if err == ErrGlyphNotFound {
-			//never return error on this, just call function OnGlyphNotFound
+			// never return error on this, just call function OnGlyphNotFound
 			if s.ttfFontOption.OnGlyphNotFound != nil {
 				s.ttfFontOption.OnGlyphNotFound(runeValue)
 			}
-			//start: try to find rune for replace
+			// start: try to find rune for replace
 			alreadyExists, runeValueReplace, glyphIndexReplace := s.replaceGlyphThatNotFound(runeValue)
 			if !alreadyExists {
 				s.CharacterToGlyphIndex.Set(runeValueReplace, glyphIndexReplace) // [runeValue] = glyphIndex
 			}
-			//end: try to find rune for replace
+			// end: try to find rune for replace
 			buff = append(buff, runeValueReplace)
 			continue
 		} else if err != nil {
@@ -260,7 +260,7 @@ func (s *SubsetFontObj) charCodeToGlyphIndexFormat4(r rune) (uint, error) {
 		}
 		seg++
 	}
-	//fmt.Printf("\ncccc--->%#v\n", me.ttfp.Chars())
+	// fmt.Printf("\ncccc--->%#v\n", me.ttfp.Chars())
 	if value < s.ttfp.StartCount[seg] {
 		return 0, ErrGlyphNotFound
 	}
@@ -269,7 +269,7 @@ func (s *SubsetFontObj) charCodeToGlyphIndexFormat4(r rune) (uint, error) {
 
 		return (value + s.ttfp.IdDelta[seg]) & 0xFFFF, nil
 	}
-	//fmt.Printf("IdRangeOffset=%d\n", me.ttfp.IdRangeOffset[seg])
+	// fmt.Printf("IdRangeOffset=%d\n", me.ttfp.IdRangeOffset[seg])
 	idx := s.ttfp.IdRangeOffset[seg]/2 + (value - s.ttfp.StartCount[seg]) - (segCount - seg)
 
 	if s.ttfp.GlyphIdArray[int(idx)] == uint(0) {
