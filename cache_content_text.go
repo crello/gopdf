@@ -254,11 +254,6 @@ func (c *cacheContentText) underline(w io.Writer) error {
 		return errors.New("error AppendUnderline not found font")
 	}
 
-	coefLineHeight := defaultCoefLineHeight
-	if c.cellOpt.CoefLineHeight != 0 {
-		coefLineHeight = c.cellOpt.CoefLineHeight
-	}
-
 	coefUnderlinePosition := defaultCoefUnderlinePosition
 	if c.cellOpt.CoefUnderlinePosition != 0 {
 		coefUnderlinePosition = c.cellOpt.CoefUnderlinePosition
@@ -270,18 +265,11 @@ func (c *cacheContentText) underline(w io.Writer) error {
 	}
 
 	ascenderPx := c.fontSubset.GetAscenderPx(c.fontSize)
-	descenderPx := -c.fontSubset.GetDescenderPx(c.fontSize)
-
-	contentHeight := ascenderPx + descenderPx
-	virtualHeight := coefLineHeight * float64(c.fontSize)
-	leading := (contentHeight - virtualHeight) / 2
-
-	baseline := ascenderPx + leading
 
 	underlinePositionPx := c.fontSubset.GetUnderlinePositionPx(c.fontSize) * coefUnderlinePosition
 	underlineThicknessPx := c.fontSubset.GetUnderlineThicknessPx(c.fontSize) * coefUnderlineThickness
 
-	yUnderlinePosition := c.pageHeight() - c.y + underlinePositionPx - baseline
+	yUnderlinePosition := c.pageHeight() - c.y - ascenderPx - math.Abs(underlinePositionPx)
 	if _, err := fmt.Fprintf(w, "%0.2f %0.2f %0.2f %0.2f re f\n", c.x, yUnderlinePosition, c.cellWidthPdfUnit, underlineThicknessPx); err != nil {
 		return err
 	}
