@@ -507,6 +507,10 @@ func (t *TTFParser) ParseName(fd *bytes.Reader) error {
 	}
 
 	t.postScriptName = ""
+
+	var fallbackFullName string
+	var fallbackFamilyName string
+
 	err = t.Skip(fd, 2) // format
 	if err != nil {
 		return err
@@ -539,8 +543,13 @@ func (t *TTFParser) ParseName(fd *bytes.Reader) error {
 		if err != nil {
 			return err
 		}
-		if nameID == 6 {
-			// PostScript name
+
+		if nameID == 6 || nameID == 4 || nameID == 1 {
+			currentPos, err := fd.Seek(0, 1)
+			if err != nil {
+				return err
+			}
+
 			_, err = fd.Seek(int64(tableOffset+stringOffset+offset), 0)
 			if err != nil {
 				return err
@@ -557,20 +566,36 @@ func (t *TTFParser) ParseName(fd *bytes.Reader) error {
 					tmpStmp = append(tmpStmp, v)
 				}
 			}
-			//s := fmt.Sprintf("%s", string(tmpStmp)) //strings(stmp)
 			s := string(tmpStmp)
 			s = strings.Replace(s, strconv.Itoa(0), "", -1)
 			s, err = t.PregReplace("|[ \\[\\](){}<>/%]|", "", s)
 			if err != nil {
 				return err
 			}
-			t.postScriptName = s
-			break
+
+			if nameID == 6 && s != "" {
+				t.postScriptName = s
+			} else if nameID == 4 && s != "" {
+				fallbackFullName = s
+			} else if nameID == 1 && s != "" {
+				fallbackFamilyName = s
+			}
+
+			_, err = fd.Seek(currentPos, 0)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	if t.postScriptName == "" {
-		return ERROR_POSTSCRIPT_NAME_NOT_FOUND
+		if fallbackFullName != "" {
+			t.postScriptName = fallbackFullName
+		} else if fallbackFamilyName != "" {
+			t.postScriptName = fallbackFamilyName
+		} else {
+			return ERROR_POSTSCRIPT_NAME_NOT_FOUND
+		}
 	}
 
 	return nil
